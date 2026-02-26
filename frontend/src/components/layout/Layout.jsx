@@ -77,6 +77,7 @@ const Layout = ({ children, title }) => {
 
   return (
     <div className="layout">
+      {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)}></div>}
       <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -113,10 +114,8 @@ const Layout = ({ children, title }) => {
         <header className="header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <button
-              className="btn btn-outline"
+              className="btn btn-outline menu-toggle"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              style={{ display: 'none' }}
-              id="menu-toggle"
             >
               <Menu size={20} />
             </button>

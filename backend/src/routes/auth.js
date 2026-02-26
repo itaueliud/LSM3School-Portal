@@ -70,12 +70,12 @@ router.post('/login', [
 
     const user = await db.User.findOne({ where: { email } });
     if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(404).json({ message: 'User not found. Sign up first.' });
     }
 
     const isValid = await user.validatePassword(password);
     if (!isValid) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Wrong password' });
     }
 
     const token = generateToken(user);

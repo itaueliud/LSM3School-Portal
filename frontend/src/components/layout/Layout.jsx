@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -15,14 +15,29 @@ import {
   X,
   Settings,
   Clock,
-  BarChart3
+  BarChart3,
+  User,
+  ChevronDown
 } from 'lucide-react';
 
 const Layout = ({ children, title }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const menuRef = useRef(null);
+  const { user, profile, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    const onClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -123,14 +138,38 @@ const Layout = ({ children, title }) => {
           </div>
 
           <div className="header-actions">
-            <div className="user-info">
-              <div className="user-avatar">
-                {user?.firstName?.[0]}{user?.lastName?.[0]}
-              </div>
-              <div className="user-details">
-                <span className="user-name">{user?.firstName} {user?.lastName}</span>
-                <span className="user-role">{user?.role}</span>
-              </div>
+            <div className="user-menu" ref={menuRef}>
+              <button className="user-menu-trigger" onClick={() => setUserMenuOpen((prev) => !prev)}>
+                <div className="user-info">
+                  <div className="user-avatar">
+                    {user?.firstName?.[0]}{user?.lastName?.[0]}
+                  </div>
+                  <div className="user-details">
+                    <span className="user-name">{user?.firstName} {user?.lastName}</span>
+                    <span className="user-role">{user?.role}</span>
+                  </div>
+                </div>
+                <ChevronDown size={18} />
+              </button>
+
+              {userMenuOpen && (
+                <div className="user-menu-dropdown">
+                  <button
+                    className="user-menu-item"
+                    onClick={() => {
+                      setShowProfileModal(true);
+                      setUserMenuOpen(false);
+                    }}
+                  >
+                    <User size={18} />
+                    <span>Profile</span>
+                  </button>
+                  <button className="user-menu-item" onClick={handleLogout}>
+                    <LogOut size={18} />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </header>
@@ -139,6 +178,31 @@ const Layout = ({ children, title }) => {
           {children}
         </div>
       </main>
+
+      {showProfileModal && (
+        <div className="modal-overlay" onClick={() => setShowProfileModal(false)}>
+          <div className="modal profile-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Profile Details</h3>
+              <button className="btn btn-outline" onClick={() => setShowProfileModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body profile-body">
+              <div className="profile-row"><span>First Name</span><strong>{user?.firstName || '-'}</strong></div>
+              <div className="profile-row"><span>Last Name</span><strong>{user?.lastName || '-'}</strong></div>
+              <div className="profile-row"><span>Email</span><strong>{user?.email || '-'}</strong></div>
+              <div className="profile-row"><span>Role</span><strong>{user?.role || '-'}</strong></div>
+              <div className="profile-row"><span>Phone</span><strong>{user?.phone || '-'}</strong></div>
+              {user?.role === 'student' && <div className="profile-row"><span>Grade</span><strong>{profile?.grade || '-'}</strong></div>}
+              {user?.role === 'student' && <div className="profile-row"><span>Student ID</span><strong>{profile?.studentId || '-'}</strong></div>}
+              {user?.role === 'teacher' && <div className="profile-row"><span>Employee ID</span><strong>{profile?.employeeId || '-'}</strong></div>}
+              {user?.role === 'teacher' && <div className="profile-row"><span>Subject</span><strong>{profile?.subject || '-'}</strong></div>}
+              {user?.role === 'parent' && <div className="profile-row"><span>Linked Student ID</span><strong>{profile?.studentId || '-'}</strong></div>}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

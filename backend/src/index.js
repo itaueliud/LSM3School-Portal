@@ -23,17 +23,25 @@ import analyticsRoutes from './routes/analytics.js';
 dotenv.config();
 
 const app = express();
+const frontendOrigins = (process.env.FRONTEND_URL || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const corsOrigin = frontendOrigins.length === 0 ? true : frontendOrigins;
+
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: '*',
+    origin: corsOrigin,
     methods: ['GET', 'POST']
   }
 });
 
 app.set('io', io);
 
-app.use(cors());
+app.use(cors({
+  origin: corsOrigin
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

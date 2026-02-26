@@ -68,6 +68,10 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'LSM3 School Portal API is running' });
 });
 
+app.get('/', (req, res) => {
+  res.status(200).json({ status: 'OK', message: 'LSM3 backend is running' });
+});
+
 setupSocket(io);
 
 const PORT = process.env.PORT || 5000;
@@ -79,7 +83,7 @@ const startServer = async () => {
 
     await seedInitialData();
 
-    httpServer.listen(PORT, () => {
+    httpServer.listen(PORT, '0.0.0.0', () => {
       console.log(`Server running on port ${PORT}`);
     });
   } catch (error) {

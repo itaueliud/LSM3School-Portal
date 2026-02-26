@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Layout from '../../components/layout/Layout';
 import api from '../../services/api';
 import { 
@@ -22,16 +23,37 @@ const AdminDashboard = () => {
   const [stats, setStats] = useState({});
   const [users, setUsers] = useState([]);
   const [subjects, setSubjects] = useState([]);
+  const [exams, setExams] = useState([]);
   const [showUserModal, setShowUserModal] = useState(false);
   const [showSubjectModal, setShowSubjectModal] = useState(false);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [showExamModal, setShowExamModal] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const routeToTab = {
+    '/': 'dashboard',
+    '/dashboard': 'dashboard',
+    '/users': 'users',
+    '/subjects': 'subjects',
+    '/exams': 'exams'
+  };
+  const tabToRoute = {
+    dashboard: '/',
+    users: '/users',
+    subjects: '/subjects',
+    exams: '/exams'
+  };
+
+  const [activeTab, setActiveTab] = useState(routeToTab[location.pathname] || 'dashboard');
   const [editingUser, setEditingUser] = useState(null);
   const [editingSubject, setEditingSubject] = useState(null);
+  const [editingExam, setEditingExam] = useState(null);
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [searchUsers, setSearchUsers] = useState('');
   const [searchSubjects, setSearchSubjects] = useState('');
+  const [searchExams, setSearchExams] = useState('');
   const [userForm, setUserForm] = useState({
     email: '',
     password: '',
@@ -45,12 +67,34 @@ const AdminDashboard = () => {
     name: '',
     grade: 'Grade 1'
   });
+  const [examForm, setExamForm] = useState({
+    title: '',
+    subjectId: '',
+    date: '',
+    totalMarks: 100,
+    grade: 'Grade 1'
+  });
+
+  const fetchExams = async () => {
+    try {
+      const response = await api.get('/exams');
+      setExams(response.data);
+    } catch (error) {
+      console.error('Error fetching exams:', error);
+    }
+  };
 
   useEffect(() => {
     fetchStats();
     fetchUsers();
     fetchSubjects();
+    fetchExams();
   }, []);
+
+  useEffect(() => {
+    // update active tab when location changes
+    setActiveTab(routeToTab[location.pathname] || 'dashboard');
+  }, [location.pathname]);
 
   const fetchStats = async () => {
     try {
@@ -80,6 +124,61 @@ const AdminDashboard = () => {
       setSubjects(response.data);
     } catch (error) {
       console.error('Error fetching subjects:', error);
+    }
+  };
+
+  const openExamModal = (exam = null) => {
+    if (exam) {
+      setEditingExam(exam);
+      setExamForm({
+        title: exam.title,
+        subjectId: exam.subjectId,
+        date: exam.date,
+        totalMarks: exam.totalMarks,
+        grade: exam.grade
+      });
+    } else {
+      setEditingExam(null);
+      setExamForm({ title: '', subjectId: '', date: '', totalMarks: 100, grade: 'Grade 1' });
+    }
+    setShowExamModal(true);
+  };
+
+  const handleCreateExam = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      if (editingExam) {
+        await api.put(`/exams/${editingExam.id}`, examForm);
+        showSuccess('Exam updated successfully');
+      } else {
+        await api.post('/exams', examForm);
+        showSuccess('Exam created successfully');
+      }
+      setShowExamModal(false);
+      setEditingExam(null);
+      setExamForm({ title: '', subjectId: '', date: '', totalMarks: 100, grade: 'Grade 1' });
+      fetchExams();
+      fetchStats();
+    } catch (error) {
+      showError(error.response?.data?.message || 'Error saving exam');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteExam = async (id) => {
+    if (!confirm('Are you sure you want to delete this exam?')) return;
+    try {
+      setLoading(true);
+      await api.delete(`/exams/${id}`);
+      showSuccess('Exam deleted successfully');
+      fetchExams();
+      fetchStats();
+    } catch (error) {
+      showError('Error deleting exam');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -207,6 +306,11 @@ const AdminDashboard = () => {
     s.name.toLowerCase().includes(searchSubjects.toLowerCase())
   );
 
+  const filteredExams = exams.filter(ex =>
+    ex.title.toLowerCase().includes(searchExams.toLowerCase()) ||
+    (ex.subject?.name || '').toLowerCase().includes(searchExams.toLowerCase())
+  );
+
   return (
     <Layout title="Admin Dashboard">
       <div className="admin-container">
@@ -226,21 +330,27 @@ const AdminDashboard = () => {
         <div className="admin-tabs">
           <button 
             className={`admin-tab ${activeTab === 'dashboard' ? 'admin-tab-active' : ''}`} 
-            onClick={() => setActiveTab('dashboard')}
+            onClick={() => navigate(tabToRoute.dashboard)}
           >
             Dashboard
           </button>
           <button 
             className={`admin-tab ${activeTab === 'users' ? 'admin-tab-active' : ''}`} 
-            onClick={() => setActiveTab('users')}
+            onClick={() => navigate(tabToRoute.users)}
           >
             Users
           </button>
           <button 
             className={`admin-tab ${activeTab === 'subjects' ? 'admin-tab-active' : ''}`} 
-            onClick={() => setActiveTab('subjects')}
+            onClick={() => navigate(tabToRoute.subjects)}
           >
             Subjects
+          </button>
+          <button 
+            className={`admin-tab ${activeTab === 'exams' ? 'admin-tab-active' : ''}`} 
+            onClick={() => navigate(tabToRoute.exams)}
+          >
+            Exams
           </button>
         </div>
 
@@ -497,6 +607,79 @@ const AdminDashboard = () => {
             </div>
           </div>
         )}
+        {activeTab === 'exams' && (
+          <div className="admin-card">
+            <div className="admin-card-header">
+              <div className="admin-header-left">
+                <h3>All Exams</h3>
+                <div className="admin-user-count">{filteredExams.length} exams</div>
+              </div>
+              <button className="admin-btn admin-btn-primary" onClick={() => openExamModal()}>
+                <Plus size={18} /> Add Exam
+              </button>
+            </div>
+            <div className="admin-card-body">
+              <div className="admin-search-box">
+                <input
+                  type="text"
+                  placeholder="Search exams..."
+                  value={searchExams}
+                  onChange={(e) => setSearchExams(e.target.value)}
+                  className="admin-search-input"
+                />
+              </div>
+              <div className="admin-table-container">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Title</th>
+                      <th>Subject</th>
+                      <th>Grade</th>
+                      <th>Date</th>
+                      <th>Total</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredExams.length > 0 ? (
+                      filteredExams.map((exam) => (
+                        <tr key={exam.id} className="admin-table-row">
+                          <td className="admin-table-strong">{exam.title}</td>
+                          <td>{exam.subject?.name || '-'}</td>
+                          <td>{exam.grade}</td>
+                          <td>{exam.date}</td>
+                          <td>{exam.totalMarks}</td>
+                          <td className="admin-table-actions">
+                            <button 
+                              className="admin-btn admin-btn-sm admin-btn-secondary" 
+                              onClick={() => openExamModal(exam)}
+                              title="Edit exam"
+                            >
+                              <Edit3 size={16} />
+                            </button>
+                            <button 
+                              className="admin-btn admin-btn-sm admin-btn-danger" 
+                              onClick={() => handleDeleteExam(exam.id)}
+                              title="Delete exam"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="6" className="admin-table-empty">
+                          No exams found
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
 
         {showUserModal && (
           <div className="admin-modal-overlay" onClick={() => setShowUserModal(false)}>
@@ -681,6 +864,105 @@ const AdminDashboard = () => {
                     disabled={loading}
                   >
                     {loading ? 'Saving...' : (editingSubject ? 'Update Subject' : 'Create Subject')}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {showExamModal && (
+          <div className="admin-modal-overlay" onClick={() => setShowExamModal(false)}>
+            <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="admin-modal-header">
+                <h3>{editingExam ? 'Edit Exam' : 'Add New Exam'}</h3>
+                <button
+                  className="admin-modal-close"
+                  onClick={() => {
+                    setShowExamModal(false);
+                    setEditingExam(null);
+                  }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <form onSubmit={handleCreateExam}>
+                <div className="admin-modal-body">
+                  <div className="admin-form-group">
+                    <label>Title</label>
+                    <input
+                      type="text"
+                      value={examForm.title}
+                      onChange={(e) => setExamForm({ ...examForm, title: e.target.value })}
+                      required
+                      className="admin-form-input"
+                    />
+                  </div>
+                  <div className="admin-form-group">
+                    <label>Subject</label>
+                    <select
+                      value={examForm.subjectId}
+                      onChange={(e) => setExamForm({ ...examForm, subjectId: e.target.value })}
+                      required
+                      className="admin-form-input"
+                    >
+                      <option value="">Select subject</option>
+                      {subjects.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="admin-form-group">
+                    <label>Grade</label>
+                    <select
+                      value={examForm.grade}
+                      onChange={(e) => setExamForm({ ...examForm, grade: e.target.value })}
+                      className="admin-form-input"
+                    >
+                      {[...Array(8)].map((_, i) => (
+                        <option key={i + 1} value={`Grade ${i + 1}`}>Grade {i + 1}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="admin-form-group">
+                    <label>Date</label>
+                    <input
+                      type="date"
+                      value={examForm.date}
+                      onChange={(e) => setExamForm({ ...examForm, date: e.target.value })}
+                      required
+                      className="admin-form-input"
+                    />
+                  </div>
+                  <div className="admin-form-group">
+                    <label>Total Marks</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={examForm.totalMarks}
+                      onChange={(e) => setExamForm({ ...examForm, totalMarks: e.target.value })}
+                      required
+                      className="admin-form-input"
+                    />
+                  </div>
+                </div>
+                <div className="admin-modal-footer">
+                  <button
+                    type="button"
+                    className="admin-btn admin-btn-outline"
+                    onClick={() => {
+                      setShowExamModal(false);
+                      setEditingExam(null);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="admin-btn admin-btn-primary"
+                    disabled={loading}
+                  >
+                    {loading ? 'Saving...' : (editingExam ? 'Update Exam' : 'Create Exam')}
                   </button>
                 </div>
               </form>

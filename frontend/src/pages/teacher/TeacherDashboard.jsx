@@ -1,17 +1,49 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Layout from '../../components/layout/Layout';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
+import { CheckCircle, XCircle, Clock as ClockIcon, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const getToday = () => new Date().toISOString().split('T')[0];
 
 const TeacherDashboard = () => {
   const { profile } = useAuth();
-  const [activeTab, setActiveTab] = useState('attendance');
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const routeToTab = {
+    '/': 'attendance',
+    '/dashboard': 'attendance',
+    '/attendance': 'attendance',
+    '/exams': 'marks',
+    '/homework': 'homework',
+    '/timetable': 'attendance',
+    '/messages': 'messages',
+    '/notifications': 'announcements'
+  };
+  const tabToRoute = {
+    attendance: '/attendance',
+    marks: '/exams',
+    homework: '/homework',
+    messages: '/messages',
+    announcements: '/notifications'
+  };
+
+  const activeTab = routeToTab[location.pathname] || 'attendance';
   const [grade, setGrade] = useState(profile?.grade || 'Grade 1');
   const [date, setDate] = useState(getToday());
   const [students, setStudents] = useState([]);
   const [attendance, setAttendance] = useState({});
+  const [gradeAttendanceHistory, setGradeAttendanceHistory] = useState([]);
+
+  const statusSequence = ['present','absent','late','excused'];
+  const statusIcon = {
+    present: <CheckCircle size={20} className="text-green-500" />,
+    absent: <XCircle size={20} className="text-red-500" />,
+    late: <ClockIcon size={20} className="text-yellow-500" />,
+    excused: <AlertCircle size={20} className="text-blue-500" />
+  };
   const [subjects, setSubjects] = useState([]);
   const [exams, setExams] = useState([]);
   const [selectedExam, setSelectedExam] = useState('');
@@ -30,8 +62,21 @@ const TeacherDashboard = () => {
   }, [grade]);
 
   useEffect(() => {
+    fetchAttendance(date);
+  }, [date, grade]);
+
+  useEffect(() => {
+    if (grade) fetchGradeHistory();
+  }, [grade]);
+
+  useEffect(() => {
     if (selectedExam) fetchExamMarks(selectedExam);
   }, [selectedExam]);
+
+  // refetch when route changes to ensure correct data for the new tab
+  useEffect(() => {
+    fetchCore();
+  }, [location.pathname]);
 
   const fetchCore = async () => {
     try {
@@ -76,8 +121,29 @@ const TeacherDashboard = () => {
       }));
       await api.post('/attendance/bulk', { date, grade, records });
       alert('Attendance saved');
+      fetchGradeHistory();
     } catch (error) {
       alert(error.response?.data?.message || 'Failed to save attendance');
+    }
+  };
+
+  const fetchAttendance = async (forDate) => {
+    try {
+      const res = await api.get('/attendance', { params: { grade, date: forDate } });
+      const next = {};
+      res.data.forEach((r) => { next[r.studentId] = r.status; });
+      setAttendance(next);
+    } catch (error) {
+      console.error('Error fetching attendance:', error);
+    }
+  };
+
+  const fetchGradeHistory = async () => {
+    try {
+      const res = await api.get(`/attendance/class/${grade}`);
+      setGradeAttendanceHistory(res.data);
+    } catch (error) {
+      console.error('Error fetching grade attendance history:', error);
     }
   };
 
@@ -127,11 +193,11 @@ const TeacherDashboard = () => {
   return (
     <Layout title="Teacher Dashboard">
       <div className="tabs">
-        <button className={`tab ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => setActiveTab('attendance')}>Attendance</button>
-        <button className={`tab ${activeTab === 'marks' ? 'active' : ''}`} onClick={() => setActiveTab('marks')}>Marks</button>
-        <button className={`tab ${activeTab === 'homework' ? 'active' : ''}`} onClick={() => setActiveTab('homework')}>Homework</button>
-        <button className={`tab ${activeTab === 'messages' ? 'active' : ''}`} onClick={() => setActiveTab('messages')}>Messages</button>
-        <button className={`tab ${activeTab === 'announcements' ? 'active' : ''}`} onClick={() => setActiveTab('announcements')}>Notifications</button>
+        <button className={`tab ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => navigate(tabToRoute.attendance)}>Attendance</button>
+        <button className={`tab ${activeTab === 'marks' ? 'active' : ''}`} onClick={() => navigate(tabToRoute.marks)}>Marks</button>
+        <button className={`tab ${activeTab === 'homework' ? 'active' : ''}`} onClick={() => navigate(tabToRoute.homework)}>Homework</button>
+        <button className={`tab ${activeTab === 'messages' ? 'active' : ''}`} onClick={() => navigate(tabToRoute.messages)}>Messages</button>
+        <button className={`tab ${activeTab === 'announcements' ? 'active' : ''}`} onClick={() => navigate(tabToRoute.announcements)}>Notifications</button>
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
@@ -148,30 +214,44 @@ const TeacherDashboard = () => {
           <div className="card-header">
             <h3>Daily Attendance</h3>
             <div style={{ display: 'flex', gap: 12 }}>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-              <button className="btn btn-primary" onClick={saveAttendance}>Save</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button className="btn btn-outline" onClick={() => setDate(prev => {
+                    const d = new Date(prev);
+                    d.setDate(d.getDate() - 1);
+                    return d.toISOString().split('T')[0];
+                  })} title="Previous day">
+                  <ChevronLeft size={18} />
+                </button>
+                <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                <button className="btn btn-outline" onClick={() => setDate(prev => {
+                    const d = new Date(prev);
+                    d.setDate(d.getDate() + 1);
+                    return d.toISOString().split('T')[0];
+                  })} title="Next day">
+                  <ChevronRight size={18} />
+                </button>
+                <button className="btn btn-primary" onClick={saveAttendance}>Save</button>
+              </div>
             </div>
           </div>
           <div className="table-container">
             <table>
               <thead><tr><th>Student</th><th>Status</th></tr></thead>
               <tbody>
-                {students.map((s) => (
-                  <tr key={s.id}>
+                {students.map((s) => {
+                  const status = attendance[s.id] || 'present';
+                  return (
+                  <tr key={s.id} onClick={() => {
+                      const idx = statusSequence.indexOf(status);
+                      const next = statusSequence[(idx + 1) % statusSequence.length];
+                      setAttendance(prev => ({ ...prev, [s.id]: next }));
+                    }} style={{ cursor: 'pointer' }}>
                     <td>{s.user?.firstName} {s.user?.lastName}</td>
-                    <td>
-                      <select
-                        value={attendance[s.id] || 'present'}
-                        onChange={(e) => setAttendance((prev) => ({ ...prev, [s.id]: e.target.value }))}
-                      >
-                        <option value="present">Present</option>
-                        <option value="absent">Absent</option>
-                        <option value="late">Late</option>
-                        <option value="excused">Excused</option>
-                      </select>
+                    <td style={{ textAlign: 'center' }}>
+                      {statusIcon[status]}
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>

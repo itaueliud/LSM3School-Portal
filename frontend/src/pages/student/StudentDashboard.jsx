@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Bell, BookOpen, CalendarDays, Clock3, GraduationCap, MessageSquare, TrendingUp } from 'lucide-react';
+import { Bell, BookOpen, CalendarDays, Clock3, GraduationCap, MessageSquare, TrendingUp, ClipboardList } from 'lucide-react';
 import Layout from '../../components/layout/Layout';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
@@ -12,7 +12,8 @@ const routeToTab = {
   '/exams': 'exams',
   '/homework': 'homework',
   '/notifications': 'notifications',
-  '/messages': 'messages'
+  '/messages': 'messages',
+  '/attendance': 'attendance'
 };
 
 const tabToRoute = {
@@ -21,7 +22,8 @@ const tabToRoute = {
   exams: '/exams',
   homework: '/homework',
   notifications: '/notifications',
-  messages: '/messages'
+  messages: '/messages',
+  attendance: '/attendance'
 };
 
 const MetricCard = ({ icon: Icon, label, value }) => (
@@ -170,6 +172,7 @@ const StudentDashboard = () => {
         <div className="tabs student-tabs">
           <button className={`tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => goTab('overview')}>Overview</button>
           <button className={`tab ${activeTab === 'timetable' ? 'active' : ''}`} onClick={() => goTab('timetable')}>Timetable</button>
+          <button className={`tab ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => goTab('attendance')}>Attendance</button>
           <button className={`tab ${activeTab === 'exams' ? 'active' : ''}`} onClick={() => goTab('exams')}>Exams & Marks</button>
           <button className={`tab ${activeTab === 'homework' ? 'active' : ''}`} onClick={() => goTab('homework')}>Homework</button>
           <button className={`tab ${activeTab === 'notifications' ? 'active' : ''}`} onClick={() => goTab('notifications')}>Notifications</button>
@@ -200,6 +203,28 @@ const StudentDashboard = () => {
                         <td>{t.subject?.name || '-'}</td>
                         <td>{t.startTime} - {t.endTime}</td>
                         <td>{t.room || '-'}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+        {activeTab === 'attendance' && (
+          <div className="card student-card">
+            <div className="card-header"><h3><ClipboardList size={18} /> Attendance</h3></div>
+            <div className="table-container student-table">
+              <table>
+                <thead><tr><th>Date</th><th>Status</th></tr></thead>
+                <tbody>
+                  {attendance.length === 0 ? (
+                    <tr><td colSpan="2">No attendance records.</td></tr>
+                  ) : (
+                    attendance.map((a) => (
+                      <tr key={a.id}>
+                        <td>{a.date}</td>
+                        <td><span className={`badge ${a.status === 'absent' ? 'badge-error' : 'badge-success'}`}>{a.status}</span></td>
                       </tr>
                     ))
                   )}

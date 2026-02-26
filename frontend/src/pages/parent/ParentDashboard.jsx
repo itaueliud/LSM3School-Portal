@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Layout from '../../components/layout/Layout';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
@@ -7,7 +8,30 @@ const ParentDashboard = () => {
   const { profile } = useAuth();
   const studentId = profile?.studentId || profile?.student?.id;
 
-  const [activeTab, setActiveTab] = useState('overview');
+  // sync tabs with the router since sidebar links navigate to different paths
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const routeToTab = {
+    '/': 'overview',
+    '/dashboard': 'overview',
+    '/attendance': 'attendance',
+    '/exams': 'performance',
+    '/homework': 'homework',
+    '/notifications': 'notifications',
+    '/messages': 'messages'
+  };
+  const tabToRoute = {
+    overview: '/',
+    attendance: '/attendance',
+    performance: '/exams',
+    homework: '/homework',
+    notifications: '/notifications',
+    messages: '/messages'
+  };
+
+  const activeTab = routeToTab[location.pathname] || 'overview';
+
   const [student, setStudent] = useState(null);
   const [attendance, setAttendance] = useState([]);
   const [marks, setMarks] = useState([]);
@@ -21,6 +45,10 @@ const ParentDashboard = () => {
     if (!studentId) return;
     fetchData();
   }, [studentId]);
+  // whenever location changes, re-fetch to refresh data for the new tab if needed
+  useEffect(() => {
+    if (studentId) fetchData();
+  }, [location.pathname]);
 
   const fetchData = async () => {
     try {
@@ -65,12 +93,12 @@ const ParentDashboard = () => {
   return (
     <Layout title="Parent Dashboard">
       <div className="tabs">
-        <button className={`tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>Overview</button>
-        <button className={`tab ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => setActiveTab('attendance')}>Attendance</button>
-        <button className={`tab ${activeTab === 'performance' ? 'active' : ''}`} onClick={() => setActiveTab('performance')}>Performance</button>
-        <button className={`tab ${activeTab === 'homework' ? 'active' : ''}`} onClick={() => setActiveTab('homework')}>Homework</button>
-        <button className={`tab ${activeTab === 'notifications' ? 'active' : ''}`} onClick={() => setActiveTab('notifications')}>Notifications</button>
-        <button className={`tab ${activeTab === 'messages' ? 'active' : ''}`} onClick={() => setActiveTab('messages')}>Messages</button>
+        <button className={`tab ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => navigate(tabToRoute.overview)}>Overview</button>
+        <button className={`tab ${activeTab === 'attendance' ? 'active' : ''}`} onClick={() => navigate(tabToRoute.attendance)}>Attendance</button>
+        <button className={`tab ${activeTab === 'performance' ? 'active' : ''}`} onClick={() => navigate(tabToRoute.performance)}>Performance</button>
+        <button className={`tab ${activeTab === 'homework' ? 'active' : ''}`} onClick={() => navigate(tabToRoute.homework)}>Homework</button>
+        <button className={`tab ${activeTab === 'notifications' ? 'active' : ''}`} onClick={() => navigate(tabToRoute.notifications)}>Notifications</button>
+        <button className={`tab ${activeTab === 'messages' ? 'active' : ''}`} onClick={() => navigate(tabToRoute.messages)}>Messages</button>
       </div>
 
       {!studentId && (
